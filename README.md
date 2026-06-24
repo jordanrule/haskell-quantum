@@ -39,3 +39,18 @@ main = print $ measurements $ transform state state
 -- [((0,0),0.25),((0,1),0.25),((1,1),0.25),((1,2),0.25)]
 ```
 
+## Checked transforms (effect-system friendly)
+
+To keep the original `Monad` API intact while making failures observable, the library also
+provides `bindChecked`:
+
+```haskell
+import Control.Quantum
+
+checked :: Either QuantumError (Quantum Int)
+checked = bindChecked (quantize [(0, 1)]) $ \x -> quantize [(x, 1)]
+```
+
+This is a small bridge for effect systems (for example Bluefin): call `bindChecked`, then raise
+or handle `QuantumError` in your effect handler instead of crashing at runtime.
+

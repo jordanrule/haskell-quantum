@@ -7,8 +7,10 @@ module Control.Quantum
     ( Amplitude
     , WaveFunction
     , Quantum
+    , QuantumError(..)
     , quantize
     , MonadQuantum
+    , bindChecked
     , runQuantum
     , runQuantum'
     , measure
@@ -61,6 +63,11 @@ data Quantum a where
     Quantum :: Ord a => Map (Maybe a) Amplitude -> Quantum a
     QuantumAny :: [(Maybe a, Amplitude)]  -> Quantum a
 
+-- | Errors produced by checked quantum transformations.
+data QuantumError
+    = NonUnitaryTransformation Double
+    deriving (Eq, Show)
+
 noState  :: (Ord a) => Quantum a
 noState  = Quantum (M.singleton Nothing (1.0:+0.0))
 
@@ -79,12 +86,21 @@ instance Applicative Quantum where
 instance Monad Quantum where
     return  = always'
 
-    m >>= f = if unitary then next
-                         else error "Non-unitary transformation applied to quantum state!"
-        where
-            unitary = nearZero $ l2norm (map snd $ toList' next) - 1.0
-            next = collect [multAmpl q (go a) | (a, q) <- toList' m]
-            go = maybe noState' f
+    m >>= f = case bindChecked m f of
+        Right next -> next
+        Left (NonUnitaryTransformation n) ->
+            error $ "Non-unitary transformation applied to quantum state (L2 norm = " ++ show n ++ ")"
+
+-- | Applies a quantum transformation and verifies that the result remains unitary.
+-- This is useful for integrating with effect systems that model failures explicitly.
+bindChecked :: Quantum a -> (a -> Quantum b) -> Either QuantumError (Quantum b)
+bindChecked m f = if nearZero (norm - 1.0)
+    then Right next
+    else Left (NonUnitaryTransformation norm)
+    where
+        next = collect [multAmpl q (go a) | (a, q) <- toList' m]
+        go = maybe noState' f
+        norm = l2norm (map snd $ toList' next)
 
 multAmpl :: Amplitude -> Quantum a -> Quantum a
 multAmpl q (Quantum x) = Quantum $ M.map (* conjugate q) x
