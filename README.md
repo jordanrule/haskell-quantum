@@ -51,6 +51,6 @@ checked :: Either QuantumError (Quantum Int)
 checked = bindChecked (quantize [(0, 1)]) $ \x -> quantize [(x, 1)]
 ```
 
-This is a small bridge for effect systems (for example Bluefin): call `bindChecked`, then raise
+This is a small bridge for effect systems: call `bindChecked`, then raise
 or handle `QuantumError` in your effect handler instead of crashing at runtime.
 
